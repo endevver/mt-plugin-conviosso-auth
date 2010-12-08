@@ -1,0 +1,9 @@
+/* Not currently used */
+#edit-author #external_id-field .textarea-wrapper,
+#edit-author #convio_user_name-field .textarea-wrapper,
+#edit-author #convio_member_id-field .textarea-wrapper,
+#edit-author #convio_password-field .textarea-wrapper {
+    width: 50%;
+}
+
+

@@ -1,0 +1,47 @@
+name: "Convio Single Sign-on Authentication"
+id: ConvioSSOAuth
+key: ConvioSSOAuth
+description: "This plugin provides a dual-mode authentication driver to Melody/Movable Type installations for Convio's single sign-on authentication system."
+version: 0.9.0
+plugin_class: MT::Plugin::ConvioSSOAuth
+static_version: 1
+schema_version: 2
+
+object_types:
+    author:
+        convio_password: string meta
+        convio_cons_id: integer meta
+        convio_member_id: integer meta
+        convio_user_name: string meta
+
+config_settings:
+    ExternalUserManagement:
+        default: 0
+        handler: $ConvioSSOAuth::MT::Plugin::ConvioSSOAuth::external_user_management
+    ConvioSSOAuthDebug:
+        default: 0
+    ConvioSSOAdminUsername:
+        default: ''
+    ConvioSSOAdminPassword:
+        default: ''
+    ConvioSSOAPIKey:
+        default: ''
+    ConvioSSOSecretAPIKey:
+        default: ''
+    ConvioSSOAuthHost:
+        default: 'secure3.convio.net'
+    ConvioSSOClientID:
+        default: ''
+    ConvioSSOAPIVersion:
+        default: '1.0'
+
+applications:
+    cms:
+        methods:
+            conviossoauth_response:
+                code: $ConvioSSOAuth::MT::Plugin::ConvioSSOAuth::response
+                requires_login: 1
+callbacks:
+    template_param.edit_author: $ConvioSSOAuth::MT::Plugin::ConvioSSOAuth::tmpl_param_edit_author
+    # # template_param.chromeless_header: $ConvioSSOAuth::MT::Plugin::ConvioSSOAuth::tmpl_param_chromeless_header
+
