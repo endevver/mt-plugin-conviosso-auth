@@ -10,76 +10,81 @@ use Data::Dumper;
 use version 0.77; our $VERSION = $version = version->declare('v0.9.0');
 
 use constant {
-    API_VERSION => '1.0',  # Required but 1.0 is only valid value
-    UA_STRING   => join('/', __PACKAGE__, $VERSION ),
+    API_VERSION => '1.0',    # Required but 1.0 is only valid value
+    UA_STRING => join( '/', __PACKAGE__, $VERSION ),
 };
 
-__PACKAGE__->mk_accessors(qw(   
-    host        short_name      api_key     _client     _request_params
- useragent servlet
-));
+__PACKAGE__->mk_accessors( qw(
+      host        short_name      api_key     _client     _request_params
+      useragent servlet
+      )
+);
+
 # cons_id
 # center_id       source            sub_source
 # redirect        success_redirect  error_redirect
 # login_name      login_password      useragent
 
-__PACKAGE__->mk_classdata(                       'v' => API_VERSION );
-__PACKAGE__->mk_classdata(                '_servlet' => 'client'    ); 
-__PACKAGE__->mk_classdata(         'response_format' => 'json'      );
-__PACKAGE__->mk_classdata(          'sign_redirects' => 'true'      );
-__PACKAGE__->mk_classdata( 'suppress_response_codes' => 'false'     );
+__PACKAGE__->mk_classdata( 'v'                       => API_VERSION );
+__PACKAGE__->mk_classdata( '_servlet'                => 'client' );
+__PACKAGE__->mk_classdata( 'response_format'         => 'json' );
+__PACKAGE__->mk_classdata( 'sign_redirects'          => 'true' );
+__PACKAGE__->mk_classdata( 'suppress_response_codes' => 'false' );
 
 # use MT::Log::Log4perl qw( l4mtdump ); use Log::Log4perl qw( :resurrect ); our $logger;
 
 sub client {
     my $self = shift;
-    @_ and return $self->_client( @_ );
+    @_ and return $self->_client(@_);
     unless ( $self->_client ) {
         my $ua;
         unless ( $self->useragent ) {
             require LWP::UserAgent;
             $self->useragent(
-                $ua = LWP::UserAgent->new( agent => UA_STRING )   # Two fer'
+                 $ua = LWP::UserAgent->new( agent => UA_STRING )    # Two fer'
             );
         }
         require REST::Client;
-        $self->_client( REST::Client->new({ useragent => $ua })); # Slick
+        $self->_client( REST::Client->new( { useragent => $ua } ) );   # Slick
         eval {
             require Compress::Zlib;
-            $self->_client->add_header('Accept-Encoding' => 'gzip');
+            $self->_client->add_header( 'Accept-Encoding' => 'gzip' );
         };
     }
     return $self->_client();
-}
+} ## end sub client
 
 sub post_data {
     my $self    = shift;
     my %data    = @_;
     my $servlet = delete $data{servlet} || $self->servlet || $self->_servlet;
     my @classdata = qw(v   api_key         response_format
-                           sign_redirects  suppress_response_codes);
+      sign_redirects  suppress_response_codes);
 
-    $data{$_} = $self->$_ foreach grep { ! defined $data{$_} } @classdata;
-    
-    $self->_request_params({ servlet => $servlet, %data });
-    print STDERR 'Method params set: '.Dumper($self->_request_params);
-return \%data;
-    return $self->client->buildQuery( %data );
+    $data{$_} = $self->$_ foreach grep { !defined $data{$_} } @classdata;
+
+    $self->_request_params( { servlet => $servlet, %data } );
+    print STDERR 'Method params set: ' . Dumper( $self->_request_params );
+    return \%data;
+    return $self->client->buildQuery(%data);
 }
 
 sub api_url {
     my $self = shift;
-    my $api = $self->_request_params->{servlet} eq 'server' 
-            ? 'SRConsAPI' : 'CRConsAPI';
+    my $api
+      = $self->_request_params->{servlet} eq 'server'
+      ? 'SRConsAPI'
+      : 'CRConsAPI';
 
-    return sprintf( 'https://%s/%s/site/%s',
-                    $self->host, $self->short_name, $api );
+    return
+      sprintf( 'https://%s/%s/site/%s', $self->host, $self->short_name,
+               $api );
 }
 
 sub format_call {
-    my $self     = shift;
-    my $post     = $self->post_data( @_ );
-    my $url      = $self->api_url();
+    my $self = shift;
+    my $post = $self->post_data(@_);
+    my $url  = $self->api_url();
     die $self->errstr unless $url and $post;
     ###l4p $logger ||= MT::Log::Log4perl->new(); $logger->trace();
     ###l4p $logger->debug('format_call: ', l4mtdump({
@@ -89,34 +94,33 @@ sub format_call {
     ###l4p }));
 
     my @required = qw(method v api_key );
-    push( @required, qw( login_name login_password ))
-        if  $self->_request_params->{servlet} eq 'server'
-        and ! $self->_request_params->{sso_auth_token};
+    push( @required, qw( login_name login_password ) )
+      if $self->_request_params->{servlet} eq 'server'
+          and !$self->_request_params->{sso_auth_token};
 
-    my @missing = grep { ! defined $self->_request_params
-->{$_} } @required;
-    return $self->error("Missing parameter(s): ".join(', ', @missing))
-        if @missing;
+    my @missing = grep { !defined $self->_request_params->{$_} } @required;
+    return $self->error( "Missing parameter(s): " . join( ', ', @missing ) )
+      if @missing;
 
-    return ($url, $post);
-}
+    return ( $url, $post );
+} ## end sub format_call
 
 
 sub make_call {
-    my $self         = shift;
-    my ($url, $post) = $self->format_call( @_ );
+    my $self = shift;
+    my ( $url, $post ) = $self->format_call(@_);
     die $self->errstr unless $url and $post;
-    
-    map { delete $post->{$_} }
-        grep { ! defined $post->{$_} } keys %$post;
 
-    $post       =~ s{^\?}{};
-    my $client  = $self->client;
-    my $ua      = $client->getUseragent();
+    map { delete $post->{$_} } grep { !defined $post->{$_} } keys %$post;
+
+    $post =~ s{^\?}{};
+    my $client = $self->client;
+    my $ua     = $client->getUseragent();
     ###l4p $logger->debug('make_call: ', l4mtdump({ url => $url, post => $post}));
 
-    my $response = $ua->post($url, $post);
+    my $response = $ua->post( $url, $post );
     $client->{_res} = $response;
+
     # my $response = $client->POST( $url, $post );
     # return ( $client->responseCode() eq '200' )
     #      ? $client->responseContent()
@@ -125,7 +129,7 @@ sub make_call {
         return $self->error( $client->responseContent() );
     }
     return $client->responseContent();
-}
+} ## end sub make_call
 
 1;
 
